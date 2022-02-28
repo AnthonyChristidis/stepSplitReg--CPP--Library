@@ -11,7 +11,7 @@
 
  // Libraries included
 #include <RcppArmadillo.h>
-#include <iostream>
+#include <vector>
 
 // Header files included
 #include "Model.hpp"
@@ -47,15 +47,15 @@ Rcpp::List Stepwise_Split(arma::mat x,
     arma::uword n_var = x_std.n_cols;
 
     // Create the memory for the models (through dynamic allocation)
-    Model* models[n_models];
+    std::vector<Model*> models;
     // Initialize the models through the constructors
     for (arma::uword m = 0; m < n_models; m++)
     {
-        models[m] = new Model(max_variables_per_model, y_c, 
-                              stop_criterion, stop_parameter, x_std.n_cols,
-                              shrinkage, alpha, include_intercept,
-                              n_lambda, tolerance, max_iter,
-                              n_folds);
+        models.push_back(new Model(max_variables_per_model, y_c, 
+                                   stop_criterion, stop_parameter, x_std.n_cols,
+                                   shrinkage, alpha, include_intercept,
+                                   n_lambda, tolerance, max_iter,
+                                   n_folds));
     }
 
     // Let's initialize the candidates
@@ -252,7 +252,6 @@ Rcpp::List CV_Stepwise_Split(arma::mat x,
             predictions /= n_models_cv;
             
             // Storing the test fold indices
-            std::cout << "Fold " << fold << ": " << arma::mean(arma::square(y.rows(test) - predictions)) << std::endl;
             cv_mspe[model_ind] += arma::mean(arma::square(y.rows(test) - predictions));
         }
     }
