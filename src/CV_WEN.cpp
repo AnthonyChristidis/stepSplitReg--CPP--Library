@@ -2,7 +2,7 @@
  * ===========================================================
  * File Type: CPP
  * File Name: CV_WEN.hpp
- * Package Name: SplitGLM
+ * Package Name: stepSplitReg
  * 
  * Created by Anthony-A. Christidis.
  * Copyright © Anthony-A. Christidis. All rights reserved.
@@ -11,13 +11,12 @@
 
 // Libraries included
 #include <RcppArmadillo.h>
+#include <vector>
 
 // Header files included
 #include "config.h"
 #include "WEN.hpp"
 #include "CV_WEN.hpp"
-
-#include <vector>
 
 // Constructor - with data
 CV_WEN::CV_WEN(arma::mat & x, arma::vec & y,
@@ -112,15 +111,15 @@ void CV_WEN::Compute_Lambda_Sparsity_Grid(){
 
 // Private function to compute the CV-MSPE over the folds
 void CV_WEN::Compute_CV_Deviance(int sparsity_ind,
-                                                  arma::mat x_test, arma::vec y_test,
-                                                  double intercept, arma::vec betas){
+                                 arma::mat x_test, arma::vec y_test,
+                                 double intercept, arma::vec betas){
   
   // Computing the CV-Error over the folds
   for(arma::uword fold_ind=0; fold_ind<n_folds; fold_ind++){ 
     cv_errors[sparsity_ind] += (*Compute_Deviance)(x_test, y_test, intercept, betas) / n_folds;
   }
 }
- 
+
 // Functions to set new data
 void CV_WEN::Set_X(arma::mat & x){
   this->x = x;
@@ -180,7 +179,7 @@ void CV_WEN::Compute_CV_Betas(){
   arma::uvec fold_ind = arma::linspace<arma::uvec>(0, n, n_folds+1);
   
   // Looping over the folds
-  # pragma omp parallel for num_threads(n_threads)
+// # pragma omp parallel for num_threads(n_threads)
   for(arma::uword fold=0; fold<n_folds; fold++){ 
     
     // Get test and training samples
@@ -193,11 +192,11 @@ void CV_WEN::Compute_CV_Betas(){
     WEN WEN_model_fold = WEN(x.rows(train), y.rows(train),   
                              type, include_intercept,
                              alpha, lambda_sparsity_grid[lambda_sparsity_grid.n_elem-1],
-                             tolerance, max_iter);    
+                                                        tolerance, max_iter);    
     
     // Looping over the different sparsity penalty parameters
     for(int sparsity_ind=lambda_sparsity_grid.n_elem-1; sparsity_ind>=0; sparsity_ind--){
-
+      
       // Setting the lambda_sparsity value
       WEN_model_fold.Set_Lambda_Sparsity(lambda_sparsity_grid[sparsity_ind]);
       // Computing the betas for the fold (new lambda_sparsity)
@@ -215,7 +214,7 @@ void CV_WEN::Compute_CV_Betas(){
   WEN WEN_model_full = WEN(x, y,   
                            type, include_intercept,
                            alpha, lambda_sparsity_grid[lambda_sparsity_grid.n_elem-1],
-                           tolerance, max_iter);    
+                                                      tolerance, max_iter);    
   
   // Looping over the different sparsity penalty parameters
   for(int sparsity_ind=lambda_sparsity_grid.n_elem-1; sparsity_ind>=0; sparsity_ind--){
@@ -227,7 +226,7 @@ void CV_WEN::Compute_CV_Betas(){
     // Storing the full data models
     intercepts[sparsity_ind] =  WEN_model_full.Get_Intercept_Scaled();
     betas.col(sparsity_ind) = WEN_model_full.Get_Coef_Scaled();
-
+    
   } // End of loop over the sparsity parameter values
   
 }
@@ -239,7 +238,7 @@ void CV_WEN::Compute_CV_Betas_Active(){
   arma::uvec fold_ind = arma::linspace<arma::uvec>(0, n, n_folds+1);
   
   // Looping over the folds
-  # pragma omp parallel for num_threads(n_threads)
+// # pragma omp parallel for num_threads(n_threads)
   for(arma::uword fold=0; fold<n_folds; fold++){ 
     
     // Get test and training samples
@@ -252,7 +251,7 @@ void CV_WEN::Compute_CV_Betas_Active(){
     WEN WEN_model_fold = WEN(x.rows(train), y.rows(train),   
                              type, include_intercept,
                              alpha, lambda_sparsity_grid[lambda_sparsity_grid.n_elem-1],
-                             tolerance, max_iter);    
+                                                        tolerance, max_iter);    
     
     // Looping over the different sparsity penalty parameters
     for(int sparsity_ind=lambda_sparsity_grid.n_elem-1; sparsity_ind>=0; sparsity_ind--){
@@ -274,7 +273,7 @@ void CV_WEN::Compute_CV_Betas_Active(){
   WEN WEN_model_full = WEN(x, y,   
                            type, include_intercept,
                            alpha, lambda_sparsity_grid[lambda_sparsity_grid.n_elem-1],
-                           tolerance, max_iter);    
+                                                      tolerance, max_iter);    
   
   // Looping over the different sparsity penalty parameters
   for(int sparsity_ind=lambda_sparsity_grid.n_elem-1; sparsity_ind>=0; sparsity_ind--){
@@ -309,7 +308,7 @@ double CV_WEN::Linear_Deviance(arma::mat x, arma::vec y,
 // Logistic Deviance
 double CV_WEN::Logistic_Deviance(arma::mat x, arma::vec y, 
                                  double intercept, arma::vec betas){
-
+  
   return(-2*arma::mean(y % (intercept + x*betas) - arma::log(1.0 + arma::exp(intercept + x*betas))));
 }
 // Gamma Deviance (MSPE)

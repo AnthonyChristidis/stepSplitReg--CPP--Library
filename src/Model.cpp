@@ -56,6 +56,10 @@ void Model::UpdateRes(const arma::vec& y) {
 
 // Update the stoping criterion
 void Model::UpdateCriteria(const arma::vec& y) {
+    
+    // Updating p-value for optimal variable
+    F_val = optimal_rss_decrease / ((current_rss - optimal_rss_decrease) / (y.n_elem - (variables_counter + 1)));
+    p_val = R::pf(F_val, 1, y.n_elem - (variables_counter + 1), 0, 1);
 
     switch (stop_criterion) {
 
@@ -65,15 +69,12 @@ void Model::UpdateCriteria(const arma::vec& y) {
         break;
     case 3: pR2 = optimal_rss_decrease / (current_rss);
         break;
-    case 4: F_val = optimal_rss_decrease / ((current_rss - optimal_rss_decrease) / (y.n_elem - (variables_counter + 1)));
-        p_val = R::pf(F_val, 1, y.n_elem - (variables_counter + 1), 0, 1);
-        break;
     }
 }
 
 // Functions to determine whether the model is full
 void Model::FixedFull() {
-    if (variables_counter == max_variables)
+    if (variables_counter == stop_parameter)
         model_full = true;
 }
 void Model::R2Full() {
@@ -116,7 +117,7 @@ void Model::Update_Optimal_Variable_New(arma::uvec candidates, const arma::mat& 
                                         const bool& initialization) {
 
     // We only update the variable if it's not full (otherwise, we leave the data at the last time it added a variable)
-    if (!Get_Full()) {
+    if (!Get_Full()){
 
         // Vector to store the decreases in RSS for all the possible candidates
         if (!initialization)

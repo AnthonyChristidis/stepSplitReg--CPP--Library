@@ -61,7 +61,7 @@ private:
 
     // Private variables for each model - Potential Optimal State
     arma::vec decrease_rss;
-    int optimal_variable;
+    arma::uword optimal_variable;
     double optimal_rss_decrease;
 
     // Private variable - assessing whether a model is full

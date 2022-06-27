@@ -64,7 +64,7 @@ Rcpp::List Stepwise_Split(arma::mat x,
     // Variables used to store the optimal model
     arma::vec models_rss_decrease(n_models);
     arma::vec models_p_val(n_models);
-    arma::uword optimal_model;
+    arma::uword optimal_model = 0;
 
     // Variable to store index of optimal variable (for the optimal model) from the candidates
     arma::uvec index_optimal(1);
@@ -73,7 +73,7 @@ Rcpp::List Stepwise_Split(arma::mat x,
     arma::uword full_models;
 
     // Initializing the optimal variable for the models
-    for (arma::uword m = 0; m < n_models; m++) {
+    for (arma::uword m = 0; m < n_models; m++){
         models[m]->Update_Optimal_Variable_New(candidates, x_std, y_c, true);
     }
 
@@ -81,7 +81,7 @@ Rcpp::List Stepwise_Split(arma::mat x,
     arma::uword n_var_iter = 0;
 
     // Let's see which of the variables is the best candidate
-    do {
+    do{
 
         if (model_criterion == 1) {
 
@@ -95,18 +95,19 @@ Rcpp::List Stepwise_Split(arma::mat x,
             // Optimal model 
             optimal_model = models_rss_decrease.index_max();
         }
+        
         else if (model_criterion == 2) {
             // Find the model with the optimal decrease in RSS
             for (arma::uword m = 0; m < n_models; m++) {
                 if (!(models[m]->Get_Full()))
                     models_p_val(m) = models[m]->Get_p_val();
                 else
-                    models_p_val(m) = -1;
+                    models_p_val(m) = 1;
             }
             // Optimal model 
             optimal_model = models_p_val.index_min();
         }
-
+        
         // Add the best variable for the optimal model
         models[optimal_model]->Variable_Update(models[optimal_model]->Get_Optimal_Variable(), x_std, y_c);
         // Remove the optimal variable from the candidates
@@ -193,7 +194,7 @@ Rcpp::List CV_Stepwise_Split(arma::mat x,
     const arma::uvec inint = arma::linspace<arma::uvec>(0, n, n_folds + 1);
     
     // Variables to store CV MSPE
-    arma::vec cv_mspe = arma::zeros(n_models.n_elem);
+    arma::mat cv_mspe = arma::zeros(n_models.n_elem, n_folds);
     
     // Looping over the number of models
     for(arma::uword model_ind=0; model_ind < n_models.n_elem; model_ind++){
@@ -229,19 +230,19 @@ Rcpp::List CV_Stepwise_Split(arma::mat x,
             // Vector to store the predictions 
             arma::vec predictions = arma::zeros(test.n_elem);
             
-            for (arma::uword model_ind = 0; model_ind < n_models.n_elem; model_ind++){
+            for(arma::uword model_ind_pred = 0; model_ind_pred < n_models_cv; model_ind_pred++){
                 
                 // Extracting the variables in the model
-                Rcpp::NumericVector rcpp_variables = variables_list[model_ind];
+                Rcpp::NumericVector rcpp_variables = variables_list[model_ind_pred];
                 arma::vec arma_variables = arma::vec(rcpp_variables);
                 arma::uvec arma_uvariables = arma::conv_to<arma::uvec>::from(arma_variables);
                 arma_uvariables = arma_uvariables - 1;
                 
                 // Extracting the intercept
-                double arma_intercept = intercepts_list[model_ind];
+                double arma_intercept = intercepts_list[model_ind_pred];
                 
                 // Extracting the betas
-                Rcpp::NumericVector rcpp_betas = betas_list[model_ind];
+                Rcpp::NumericVector rcpp_betas = betas_list[model_ind_pred];
                 arma::vec arma_betas = arma::vec(rcpp_betas);
                 
                 // Predictions
@@ -252,7 +253,7 @@ Rcpp::List CV_Stepwise_Split(arma::mat x,
             predictions /= n_models_cv;
             
             // Storing the test fold indices
-            cv_mspe[model_ind] += arma::mean(arma::square(y.rows(test) - predictions));
+            cv_mspe(model_ind, fold) = arma::mean(arma::square(y.rows(test) - predictions));
         }
     }
     
@@ -260,7 +261,8 @@ Rcpp::List CV_Stepwise_Split(arma::mat x,
     cv_mspe /= n_folds;
     
     // Optimal number of models
-    arma::uword n_models_optimal = n_models[cv_mspe.index_min()];
+    arma::vec cv_mspe_models = arma::mean(cv_mspe, 1);
+    arma::uword n_models_optimal = n_models[cv_mspe_models.index_min()];
     
     // Stepwise split with optimal number of models
     // Running the algorithm for the fold

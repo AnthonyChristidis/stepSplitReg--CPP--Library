@@ -2,7 +2,7 @@
  * ===========================================================
  * File Type: CPP
  * File Name: WEN.cpp
- * Package Name: SplitGLM
+ * Package Name: stepSplitReg
  * 
  * Created by Anthony-A. Christidis.
  * Copyright © Anthony-A. Christidis. All rights reserved.
@@ -11,6 +11,7 @@
 
 // Libraries included
 #include <RcppArmadillo.h>
+#include <iostream>
 
 // Header files included
 #include "WEN.hpp"
@@ -45,7 +46,7 @@ void WEN::Initialize(){
   x_std.each_row() /= sd_x;
   x_std_2 = x_std % x_std;
   mu_y = arma::mean(y);
-
+  
   // Setting the parameters
   n = x.n_rows;
   p = x.n_cols;
@@ -54,8 +55,8 @@ void WEN::Initialize(){
   residuals = arma::zeros(n);
   betas = arma::zeros(p);
   new_betas = arma::zeros(p);
-  intercept = 0; 
-
+  intercept = new_intercept = 0; 
+  
   // Setting initial values and function pointers for expected values and weights
   if(type==1){ // Linear Model
     
@@ -143,7 +144,10 @@ double WEN::Soft(double z, double gamma){
 void WEN::Cycle_Full_Set(){
   
   // Initial iteration over all the variables
-  new_intercept = ((include_intercept) ? (intercept + (n*(mu_y-arma::mean(expected_val)))/arma::accu(weights)) : 0); 
+  // First intercept update
+  if(include_intercept==1)
+    new_intercept = intercept + n*(mu_y-arma::mean(expected_val))/arma::accu(weights);
+  
   // Update expected values, weights and residuals if there is a change (intercept)
   if(std::fabs(new_intercept-intercept)>=EQUAL_TOLERANCE){
     Adjust_Expected_Weights();
@@ -176,7 +180,7 @@ void WEN::Compute_Coef(){
       Scale_Intercept();
       return;
     }
-
+    
     // Adjusting the intercept and betas
     intercept=new_intercept;
     betas = new_betas;
@@ -210,9 +214,11 @@ arma::uword WEN::Compare_Active_Set(arma::uvec & active_set){
 
 // Coordinate descent iterations over the active set
 void WEN::Cycle_Active_Set(arma::uvec & active_set){
-   
+  
   // Initial iteration over all the variables
-  new_intercept = ((include_intercept) ? (intercept + (n*(mu_y-arma::mean(expected_val)))/arma::accu(weights)) : 0); 
+  if(include_intercept==1)
+    new_intercept = (intercept + (n*(mu_y-arma::mean(expected_val)))/arma::accu(weights));
+  
   // Update expected values, weights and residuals if there is a change (intercept)
   if(std::fabs(new_intercept-intercept)>=EQUAL_TOLERANCE){ 
     Adjust_Expected_Weights();
@@ -229,12 +235,12 @@ void WEN::Cycle_Active_Set(arma::uvec & active_set){
     }
   }
 }
- 
+
 void WEN::Compute_Coef_Active(){
   
   // Initial cycles for all the variables
   for(arma::uword test_iter=0; test_iter<ACTIVE_SET_PRE_ITER; test_iter++){
-  
+    
     // Cycle over all variables
     Cycle_Full_Set();
     
@@ -255,7 +261,7 @@ void WEN::Compute_Coef_Active(){
   // Vector for the active set
   arma::uvec active_set;
   arma::vec active_set_helper = arma::zeros(p);
-
+  
   // Cycling over the active set
   do{
     
@@ -264,7 +270,7 @@ void WEN::Compute_Coef_Active(){
     active_set_helper(arma::find(betas!=0)).fill(1);
     active_set.set_size(arma::sum(active_set_helper));
     active_set = arma::find(betas!=0);
-
+    
     // Convergence around the active variables
     for(arma::uword iter=0; iter<max_iter; iter++){
       
@@ -353,12 +359,12 @@ void WEN::Scale_Intercept(){
 WEN::~WEN(){
   // Class destructor
 }
- 
+
 /*
-* ________________________________________________
-* Static Functions - Weights and Expected Values 
-* ________________________________________________
-*/
+ * ________________________________________________
+ * Static Functions - Weights and Expected Values 
+ * ________________________________________________
+ */
 
 void WEN::Linear_Update(arma::mat & x, double & intercept, arma::vec & betas, 
                         arma::vec & expected_val, arma::vec & weights){
@@ -419,10 +425,5 @@ void WEN::Poisson_Update_Intercept(arma::mat & x, double & intercept, arma::vec 
   expected_val = arma::exp(intercept + x*betas);
   weights = expected_val;
 }
-  
-
-
-
-
 
 
